@@ -9,7 +9,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/hellosekai/flatted"
+	"github.com/hellosekai/flatted-golang"
 )
 
 type exampleStruct struct {
