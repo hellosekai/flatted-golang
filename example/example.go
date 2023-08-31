@@ -7,8 +7,9 @@
 package main
 
 import (
-	"flatted"
 	"fmt"
+
+	"github.com/hellosekai/flatted"
 )
 
 type exampleStruct struct {
