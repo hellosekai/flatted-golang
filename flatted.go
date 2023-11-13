@@ -73,9 +73,9 @@ func findNextElement(input *string, fr int, en int, ch byte) int {
 }
 
 func getIndex(data *string) string {
-	if ind, ok := data_index[*data]; ok {
-		return ind
-	}
+	// if ind, ok := data_index[*data]; ok {
+	// 	return ind
+	// }
 	temp := strconv.Itoa(indexGlobal)
 	indexGlobal++
 	data_index[*data] = temp
