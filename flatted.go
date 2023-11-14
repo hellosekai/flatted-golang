@@ -4,23 +4,34 @@ import (
 	"strconv"
 )
 
-var index_data map[string]string
-var data_index map[string]string
-var indexGlobal int // 全局index
+type flatted struct {
+	index_data  map[string]string
+	data_index  map[string]string
+	indexGlobal int // 全局index
+	number_data map[int]string
+}
+
+func NewFlattedData() *flatted {
+	return &flatted{
+		index_data:  make(map[string]string),
+		data_index:  make(map[string]string),
+		indexGlobal: 0,
+		number_data: make(map[int]string),
+	}
+}
 
 func Flatted(data string) string {
-	index_data = make(map[string]string)
-	data_index = make(map[string]string)
-	indexGlobal = 0
+	flat := NewFlattedData()
+
 	if data[0] == '[' {
-		manualList(&data, getIndex(&data))
+		flat.manualList(&data, flat.getIndex(&data))
 	} else {
-		manualStruct(&data, getIndex(&data))
+		flat.manualStruct(&data, flat.getIndex(&data))
 	}
 	ans := ""
-	for i := 0; i < len(index_data); i++ {
-		ans += index_data[strconv.Itoa(i)]
-		if i < len(index_data)-1 {
+	for i := 0; i < len(flat.index_data); i++ {
+		ans += flat.index_data[strconv.Itoa(i)]
+		if i < len(flat.index_data)-1 {
 			ans += ","
 		}
 	}
@@ -36,7 +47,7 @@ func Flatted(data string) string {
 	return ans
 }
 
-func findMatchRightBrace(input *string, fr int, en int, left byte, right byte) int {
+func (f *flatted) findMatchRightBrace(input *string, fr int, en int, left byte, right byte) int {
 	cnt := 1
 	flag := false
 	for fr < en {
@@ -61,7 +72,7 @@ func findMatchRightBrace(input *string, fr int, en int, left byte, right byte) i
 	return -1
 }
 
-func findNextElement(input *string, fr int, en int, ch byte) int {
+func (f *flatted) findNextElement(input *string, fr int, en int, ch byte) int {
 	for fr < en {
 		// 考虑转义
 		if (*input)[fr] == ch && (*input)[fr-1] != '\\' {
@@ -72,23 +83,23 @@ func findNextElement(input *string, fr int, en int, ch byte) int {
 	return -1
 }
 
-func getIndex(data *string) string {
+func (f *flatted) getIndex(data *string) string {
 	// if ind, ok := data_index[*data]; ok {
 	// 	return ind
 	// }
-	temp := strconv.Itoa(indexGlobal)
-	indexGlobal++
-	data_index[*data] = temp
+	temp := strconv.Itoa(f.indexGlobal)
+	f.indexGlobal++
+	f.data_index[*data] = temp
 	return temp
 }
 
 // 处理列表。传入的index是当前处理data的index
-func manualList(data *string, index string) {
+func (f *flatted) manualList(data *string, index string) {
 	// 使用tempAns拼出当前处理的data
 	tempAns := ""
 	// 处理空list
 	if *data == "[]" {
-		index_data[index] = *data
+		f.index_data[index] = *data
 		return
 	}
 	for i := 1; i < len(*data); {
@@ -99,10 +110,10 @@ func manualList(data *string, index string) {
 		switch (*data)[i] {
 		// 递归处理struct
 		case '{':
-			en := findMatchRightBrace(data, i+1, len(*data), '{', '}')
+			en := f.findMatchRightBrace(data, i+1, len(*data), '{', '}')
 			tempData := (*data)[i : en+1]
-			tempIndex := getIndex(&tempData)
-			manualStruct(&tempData, tempIndex)
+			tempIndex := f.getIndex(&tempData)
+			f.manualStruct(&tempData, tempIndex)
 			tempAns += "\"" + tempIndex + "\""
 			i = en + 1
 		case ',':
@@ -110,40 +121,40 @@ func manualList(data *string, index string) {
 			i++
 		// 递归处理list
 		case '[':
-			en := findMatchRightBrace(data, i+1, len(*data), '[', ']')
+			en := f.findMatchRightBrace(data, i+1, len(*data), '[', ']')
 			tempData := (*data)[i : en+1]
-			tempIndex := getIndex(&tempData)
+			tempIndex := f.getIndex(&tempData)
 			tempAns += "\"" + tempIndex + "\""
-			manualList(&tempData, tempIndex)
+			f.manualList(&tempData, tempIndex)
 			i = en + 1
 		case ']':
 			i++
 		case '"':
 			i++
-			en := findNextElement(data, i, len(*data), '"')
+			en := f.findNextElement(data, i, len(*data), '"')
 			tempData := (*data)[i:en]
-			tempIndex := getIndex(&tempData)
-			index_data[tempIndex] = "\"" + tempData + "\""
+			tempIndex := f.getIndex(&tempData)
+			f.index_data[tempIndex] = "\"" + tempData + "\""
 			tempAns += "\"" + tempIndex + "\""
 			i = en + 1
 		default:
-			en := findNextElement(data, i, len(*data), ',')
+			en := f.findNextElement(data, i, len(*data), ',')
 			if en == -1 {
-				en = findNextElement(data, i, len(*data), ']')
+				en = f.findNextElement(data, i, len(*data), ']')
 			}
 			tempAns += (*data)[i:en]
 			i = en
 		}
 	}
 	tempAns = "[" + tempAns + "]"
-	index_data[index] = tempAns
+	f.index_data[index] = tempAns
 }
 
 // 处理结构体
-func manualStruct(data *string, index string) {
+func (f *flatted) manualStruct(data *string, index string) {
 	tempAns := ""
 	if *data == "{}" {
-		index_data[index] = *data
+		f.index_data[index] = *data
 		return
 	}
 	for i := 1; i < len(*data); {
@@ -162,31 +173,31 @@ func manualStruct(data *string, index string) {
 			switch (*data)[i] {
 			case '"':
 				i++
-				en := findNextElement(data, i, len(*data), '"')
+				en := f.findNextElement(data, i, len(*data), '"')
 				tempData := (*data)[i:en]
-				tempIndex := getIndex(&tempData)
-				index_data[tempIndex] = "\"" + tempData + "\""
+				tempIndex := f.getIndex(&tempData)
+				f.index_data[tempIndex] = "\"" + tempData + "\""
 				tempAns += "\"" + tempIndex + "\""
 				i = en + 1
 			case '{':
-				en := findMatchRightBrace(data, i+1, len(*data), '{', '}')
+				en := f.findMatchRightBrace(data, i+1, len(*data), '{', '}')
 				tempData := (*data)[i : en+1]
-				tempIndex := getIndex(&tempData)
-				manualStruct(&tempData, tempIndex)
+				tempIndex := f.getIndex(&tempData)
+				f.manualStruct(&tempData, tempIndex)
 				tempAns += "\"" + tempIndex + "\""
 				i = en + 1
 			case '[':
-				en := findMatchRightBrace(data, i+1, len(*data), '[', ']')
+				en := f.findMatchRightBrace(data, i+1, len(*data), '[', ']')
 				tempData := (*data)[i : en+1]
-				tempIndex := getIndex(&tempData)
+				tempIndex := f.getIndex(&tempData)
 				tempAns += "\"" + tempIndex + "\""
-				manualList(&tempData, tempIndex)
+				f.manualList(&tempData, tempIndex)
 				i = en + 1
 			// 处理非字符串
 			default:
-				en := findNextElement(data, i, len(*data), ',')
+				en := f.findNextElement(data, i, len(*data), ',')
 				if en == -1 {
-					en = findNextElement(data, i, len(*data), '}')
+					en = f.findNextElement(data, i, len(*data), '}')
 				}
 				tempAns += (*data)[i:en]
 				i = en
@@ -197,7 +208,7 @@ func manualStruct(data *string, index string) {
 		// 结构体内的tag都是"\""开头
 		case '"':
 			i++
-			en := findNextElement(data, i, len(*data), '"')
+			en := f.findNextElement(data, i, len(*data), '"')
 			tempAns += "\"" + (*data)[i:en] + "\""
 			i = en + 1
 		case '}':
@@ -205,38 +216,35 @@ func manualStruct(data *string, index string) {
 		}
 	}
 	tempAns = "{" + tempAns + "}"
-	index_data[index] = tempAns
+	f.index_data[index] = tempAns
 }
-
-var number_data map[int]string
 
 func UnFlatted(data string) string {
-	number_data = make(map[int]string)
-	indexGlobal = 0
-	getIndexDataMap(&data)
-	return getAns(0)
+	flat := NewFlattedData()
+	flat.getIndexDataMap(&data)
+	return flat.getAns(0)
 }
 
-func getIndexDataMap(input *string) {
+func (f *flatted) getIndexDataMap(input *string) {
 	for i := 1; i < len(*input)-1; {
 		switch (*input)[i] {
 		case '{':
-			en := findMatchRightBrace(input, i+1, len(*input), '{', '}')
+			en := f.findMatchRightBrace(input, i+1, len(*input), '{', '}')
 			en++
-			number_data[indexGlobal] = (*input)[i:en]
-			indexGlobal++
+			f.number_data[f.indexGlobal] = (*input)[i:en]
+			f.indexGlobal++
 			i = en
 		case '[':
-			en := findMatchRightBrace(input, i+1, len(*input), '[', ']')
+			en := f.findMatchRightBrace(input, i+1, len(*input), '[', ']')
 			en++
-			number_data[indexGlobal] = (*input)[i:en]
-			indexGlobal++
+			f.number_data[f.indexGlobal] = (*input)[i:en]
+			f.indexGlobal++
 			i = en
 		case '"':
-			en := findNextElement(input, i+1, len(*input), '"')
+			en := f.findNextElement(input, i+1, len(*input), '"')
 			en++
-			number_data[indexGlobal] = (*input)[i:en]
-			indexGlobal++
+			f.number_data[f.indexGlobal] = (*input)[i:en]
+			f.indexGlobal++
 			i = en
 		case ',':
 			i++
@@ -244,9 +252,9 @@ func getIndexDataMap(input *string) {
 	}
 }
 
-func getAns(index int) string {
+func (f *flatted) getAns(index int) string {
 	ans := ""
-	temp := number_data[index]
+	temp := f.number_data[index]
 	if temp[0] == '"' && temp[len(temp)-1] == '"' {
 		if _, err := strconv.Atoi(temp[1 : len(temp)-1]); err == nil {
 			return temp
@@ -256,11 +264,11 @@ func getAns(index int) string {
 		switch temp[i] {
 		case '"':
 			if i == 0 || temp[i-1] != '\\' {
-				en := findNextElement(&temp, i+1, len(temp), '"')
+				en := f.findNextElement(&temp, i+1, len(temp), '"')
 				maybeNumber := temp[i+1 : en]
 				number, err := strconv.Atoi(maybeNumber)
 				if err == nil {
-					ans += getAns(number)
+					ans += f.getAns(number)
 					i = en
 				} else {
 					ans += temp[i : en+1]
